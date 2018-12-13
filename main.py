@@ -138,12 +138,7 @@ class MainWindow(QMainWindow) :
         ########################################################################
         
         # Create the File menu
-        self.menuFile = self.menuBar().addMenu("&File")
-        self.actionSaveAs = QAction("&Save As", self)
-        self.actionSaveAs.triggered.connect(self.saveas)
-        self.actionQuit = QAction("&Quit", self)
-        self.actionQuit.triggered.connect(self.close)
-        self.menuFile.addActions([self.actionSaveAs, self.actionQuit])
+
         
         # Create the Help menu
         self.menuHelp = self.menuBar().addMenu("&Help")
@@ -161,6 +156,7 @@ class MainWindow(QMainWindow) :
         self.plot3 = MatplotlibCanvas()
         self.edit1 = QLineEdit("lower edge")
         self.edit2 = QLineEdit("upper edge")
+        self.edit3 = QLineEdit("name data entry")
         self.button1 = QPushButton('Show Profile', self)
         self.button2 = QPushButton('Show Output', self)
         
@@ -176,32 +172,22 @@ class MainWindow(QMainWindow) :
         sub_layout1.addWidget(self.edit1)
         sub_layout1.addWidget(self.edit2)
         sub_layout1.addWidget(self.button1)
+        sub_layout2 = QHBoxLayout()
+        sub_layout2.addWidget(self.edit3)
+        sub_layout2.addWidget(self.button2)
         layout.addLayout(sub_layout1)
         layout.addWidget(self.plot2)
-        layout.addWidget(self.button2)
+        layout.addLayout(sub_layout2)
         layout.addWidget(self.plot3)
         self.widget.setLayout(layout)        
         self.setCentralWidget(self.widget)
         
-    def saveas(self):
-        """Save something
-        
-        Hint: look up QFileDialog.getSaveFileName.
-        """
-        fname = QFileDialog.getSaveFileName(self, "Save As")[0]
-        x = eval(self.edit2.text())
-        y = eval(self.edit1.currentText())
-        import csv
-        with open(fname, 'w') as f:
-            writer = csv.writer(f, delimiter='\t')
-            writer.writerows(zip(x,y))
-        quit()
        
     def about(self):
         QMessageBox.about(self, 
-            "About Function Evaluator",
-            """<b>Function Evaluator</b>
-               <p>Copyright &copy; 2016 Jeremy Roberts, All Rights Reserved.
+            "About Program",
+            """<b>Preliminary rebar analysis</b>
+               <p>Copyright &copy; 2018 Alec Mitchell, All Rights Reserved.
                <p>Python %s -- Qt %s -- PyQt %s on %s""" %
             (platform.python_version(),
              QT_VERSION_STR, PYQT_VERSION_STR, platform.system()))
@@ -236,58 +222,19 @@ class MainWindow(QMainWindow) :
         
         """
         approx = getapprox(self.y)
-        m1 = (approx[1][0]-approx[1][1])/(approx[0][1]-approx[0][0])
-        m2 = (approx[1][3]-approx[1][2])/(approx[0][3]-approx[0][2])
-        self.pitch = .5*(m1+m2)
-        self.area = .5*(approx[0][0]*approx[1][1] - approx[1][0]*approx[0][1] + approx[0][1]*approx[1][2] - approx[1][1]*approx[0][2] + approx[0][2]*approx[1][3] - approx[1][2]*approx[0][3] + approx[0][3]*approx[1][0] - approx[1][3]*approx[0][0])
-        self.depth = .5*(approx[1][0]+approx[1][3]-approx[1][1]-approx[1][2])
+        self.leftslope = (approx[1][1]-approx[1][2])/(approx[0][2]-approx[0][1])
+        self.rightslope = (approx[1][4]-approx[1][3])/(approx[0][4]-approx[0][3])
+        self.area = .5*(approx[0][1]*approx[1][2] - approx[1][1]*approx[0][2] + approx[0][2]*approx[1][3] - approx[1][2]*approx[0][3] + approx[0][3]*approx[1][4] - approx[1][3]*approx[0][4] + approx[0][4]*approx[1][1] - approx[1][4]*approx[0][1])
+        self.depth = .5*(approx[1][1]+approx[1][4]-approx[1][2]-approx[1][3])
         self.plot3.overlay(self.x,self.y, approx[0], approx[1])
-      
+        name = self.edit3.text()
+        row = [name, self.leftslope, self.rightslope, self.area, self.depth]
+        with open('output.csv', mode='a') as file:
+            writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(row)
         
-        
 
-"""        
-class Form(QDialog) :
-
-    def __init__(self, parent=None) :
-        super(Form, self).__init__(parent)
-        self.function_edit = QLineEdit("x**2")
-        self.function_edit.selectAll()
-        self.parameter_edit = QLineEdit("np.linspace(0,1,4)")
-        self.parameter_edit.selectAll()
-        self.output_edit = QLineEdit(" ")
-        self.output_edit.selectAll()
-        self.plot = MatplotlibCanvas()
-        layout = QVBoxLayout()
-        layout.addWidget(self.plot)
-        layout.addWidget(self.function_edit)
-        layout.addWidget(self.parameter_edit)     
-        layout.addWidget(self.output_edit)  
-        self.setLayout(layout)
-        self.function_edit.setFocus()
-        self.output_edit.returnPressed.connect(self.updateUi)
-        self.setWindowTitle("Function Evaluator")
-        self.x = None
-        self.f = None
-
-    def updateUi(self) :
-        #try : 
-            self.x = str(self.parameter_edit.text())
-            x = eval(self.x) 
-            if len(x) > 1 :
-                x = np.array(x)
-            # Is there a cleaner way?
-            f = eval(str(self.function_edit.text()))
-            self.f = str(f)
-            self.f = self.f.replace("[","").replace("]","")
-            self.f = ",".join(self.f.split())
-            self.output_edit.setText(self.f)
-            self.plot.redraw(x, f)
-            #self.plot.axes.plot(x, f)
-            #self.plot.draw()
-        #except :
-        #    self.output_edit.setText("error! check function or parameter.")
-"""                
+                
 class MatplotlibColormesh(FigureCanvas) :
     """ This is borrowed heavily from the matplotlib documentation;
         specifically, see:
@@ -347,6 +294,7 @@ class MatplotlibCanvas(FigureCanvas) :
         self.axes.clear()
         self.axes.plot(x, y)
         self.draw()  
+
     def overlay(self, x, y, x2, y2) :
         """ Redraw the figure with new x and y values.
         """
